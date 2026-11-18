@@ -1,0 +1,383 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Confronto Portafogli</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: una colonna. Selettore portafogli, tabella di confronto, grafico rischio/rendimento, titoli con Peso e ISIN. */
+:root{
+  --bg:#f6f7f5; --surface:#ffffff; --ink:#16201d; --ink2:#4b5753; --muted:#7a8480; --line:#dbe0dc;
+  --accent:#0b6b5e; --best:#e3f3ee; --warn:#9a5b06;
+  --c0:#b45309; --c1:#0f766e; --c2:#1d4ed8; --c3:#7c3aed; --c4:#be185d; --c5:#4d7c0f; --c6:#334155; --c7:#dc2626; --c8:#0284c7; --c9:#a16207; --c10:#701a75; --c11:#a21caf; --c12:#d946ef; --c13:#7c2d12; --c14:#c2410c; --c15:#ea580c; --c16:#0f172a; --c17:#be123c;
+  --f-body:'Instrument Sans',system-ui,sans-serif; --f-mono:'Spline Sans Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#101614; --surface:#18201d; --ink:#eaf0ed; --ink2:#b3bfba; --muted:#86928d; --line:#2b3631;
+  --accent:#3fc3ac; --best:#173a33; --warn:#e0a24a;
+  --c0:#e8943a; --c1:#2dd4bf; --c2:#6ea0ff; --c3:#a78bfa; --c4:#f472b6; --c5:#a3d95b; --c6:#94a3b8; --c7:#f87171; --c8:#38bdf8; --c9:#facc15; --c10:#f0abfc; --c11:#e879f9; --c12:#c026d3; --c13:#fdba74; --c14:#fb923c; --c15:#f97316; --c16:#cbd5e1; --c17:#fb7185; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#101614; --surface:#18201d; --ink:#eaf0ed; --ink2:#b3bfba; --muted:#86928d; --line:#2b3631;
+  --accent:#3fc3ac; --best:#173a33; --warn:#e0a24a;
+  --c0:#e8943a; --c1:#2dd4bf; --c2:#6ea0ff; --c3:#a78bfa; --c4:#f472b6; --c5:#a3d95b; --c6:#94a3b8; --c7:#f87171; --c8:#38bdf8; --c9:#facc15; --c10:#f0abfc; --c11:#e879f9; --c12:#c026d3; --c13:#fdba74; --c14:#fb923c; --c15:#f97316; --c16:#cbd5e1; --c17:#fb7185; color-scheme:dark;}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);padding-block:28px 56px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:34px}
+h1,h2,h3{margin:0;line-height:1.15;text-wrap:balance;font-weight:700}
+h1{font-size:clamp(26px,4.6vw,38px);letter-spacing:-.01em} h2{font-size:20px} h3{font-size:15px}
+p{margin:0;max-width:70ch}
+.muted{color:var(--ink2)} .small{font-size:12.5px;color:var(--muted)}
+.mono,td.n,.code{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+header{display:flex;flex-direction:column;gap:10px}
+.stamp{display:inline-flex;gap:8px;align-items:center;font-size:12.5px;color:var(--ink2);border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 12px;align-self:flex-start}
+.stamp i{width:8px;height:8px;border-radius:50%;background:var(--warn)}
+section{display:flex;flex-direction:column;gap:14px;min-width:0}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:inherit;font-size:13.5px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 14px 6px 10px;cursor:pointer;display:inline-flex;gap:8px;align-items:center}
+.chip i{width:10px;height:10px;border-radius:50%;background:var(--c);display:inline-block}
+.chip[aria-pressed="false"]{color:var(--muted)} .chip[aria-pressed="false"] i{background:transparent;box-shadow:inset 0 0 0 2px var(--c);opacity:.55}
+.chip[aria-pressed="true"]{border-color:var(--c)}
+button:focus-visible,.code:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1;min-width:190px;white-space:normal}
+thead th{font-size:12.5px;font-weight:600;color:var(--ink2);vertical-align:bottom;white-space:normal;min-width:96px}
+thead th .sw{display:block;height:3px;border-radius:2px;background:var(--c);margin-bottom:6px}
+tbody tr:last-child td{border-bottom:0}
+td.best{background:var(--best);font-weight:600}
+td.nd{color:var(--muted)}
+td .sub{display:block;font-size:11.5px;color:var(--muted);font-weight:400}
+tr.grp td{background:var(--bg);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;padding-block:6px}
+.hint{font-size:12px;color:var(--muted);display:block}
+#chartbox{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:8px 4px 2px}
+#chart{width:100%;height:auto;display:block}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid var(--line)}
+.tab{font:inherit;font-size:13.5px;background:none;border:0;border-bottom:3px solid transparent;color:var(--ink2);padding:8px 10px;cursor:pointer;margin-bottom:-1px}
+.tab[aria-selected="true"]{color:var(--ink);font-weight:600;border-bottom-color:var(--c)}
+.tab i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:6px}
+.wbar{height:8px;border-radius:4px;background:var(--bg);overflow:hidden;min-width:70px}
+.wbar>span{display:block;height:100%;background:var(--c)}
+.wcell{display:grid;grid-template-columns:64px minmax(70px,1fr);gap:10px;align-items:center;justify-content:end}
+#hold td:first-child{min-width:230px}
+.isins{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
+.code{font-size:12.5px;cursor:pointer;background:var(--bg);border-radius:4px;padding:1px 6px;border:0;color:var(--ink);text-align:left}
+.todo{color:var(--muted);font-size:12.5px;font-style:italic}
+.notes{display:flex;flex-direction:column;gap:6px;padding-left:18px;margin:0;font-size:13.5px;color:var(--ink2)}
+.notes li{max-width:80ch}
+.guide{margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:0 28px}
+.guide>div{border-top:1px solid var(--line);padding:12px 0 14px;min-width:0}
+.guide dt{font-weight:600;font-size:14.5px;margin-bottom:4px}
+.guide dd{margin:0;color:var(--ink2);font-size:13.5px;max-width:62ch}
+@media(prefers-reduced-motion:no-preference){.wbar>span{transition:width .5s ease}}
+</style>
+
+<main>
+<header>
+  <span class="stamp"><i></i>Dati dai tuoi file e dalle schede dei titoli, 27 ott 2026 · nessun feed di mercato collegato</span>
+  <h1>Confronto portafogli</h1>
+  <p class="muted">I portafogli del progetto Creazione Portafogli: il PAC Globale Ex-USA, i quattro mix A–D del Portafoglio 2 (copertura in euro e BTP), il PAC da 25 € al mese, i tre portafogli per 30–40 anni (A Massima Semplicità, B World/EM 80/20, C Allocazione Senior), il portafoglio IDEALE (miglior compromesso tra rendimento composto e volatilità), i due portafogli attuali DEGIRO e TR MY (con azioni singole come NVIDIA, Eli Lilly e Poste) e i sei portafogli rivisti (DEGIRO 2, TR MY2 e le versioni a rendimento lordo 10% e 12%). Scegli quali confrontare; i nuovi portafogli vengono aggiunti qui.</p>
+</header>
+
+<section>
+  <div class="chips" id="chips" role="group" aria-label="Portafogli da confrontare"></div>
+  <div class="wrap"><table>
+    <thead id="thead"></thead>
+    <tbody id="tbody"></tbody>
+  </table></div>
+  <p class="small">Evidenziato in verde il valore migliore tra i portafogli selezionati (più alto per rendimento, CAGR e Sharpe; più basso per TER e volatilità). "n.d." indica un dato che i file non riportano e che non ho stimato.</p>
+</section>
+
+<section>
+  <h2>Rischio e CAGR netto</h2>
+  <p class="muted">Ogni punto è un portafoglio: a destra più volatilità, in alto più crescita composta netta stimata. Per il PAC da 25 € uso la volatilità del Portafoglio B, che ha la stessa composizione. I portafogli DEGIRO e TR MY (attuali e rivisti) hanno una volatilità stimata con un modello a indice singolo: le versioni al 12% stanno molto a destra e il loro CAGR è più basso di quello al 10% per effetto della volatilità.</p>
+  <div id="chartbox"><svg id="chart" viewBox="0 0 680 340" role="img" aria-label="Volatilità annua contro CAGR netto stimato per portafoglio"></svg></div>
+</section>
+
+<section>
+  <h2>Titoli, pesi e ISIN</h2>
+  <div class="tabs" id="tabs" role="tablist"></div>
+  <div class="wrap"><table id="hold">
+    <thead><tr><th>Strumento</th><th>ISIN</th><th>Peso</th><th>TER</th><th>Cambio</th></tr></thead>
+    <tbody id="hbody"></tbody>
+  </table></div>
+  <p class="small" id="hnote"></p>
+</section>
+
+<section>
+  <h2>Come leggere i numeri</h2>
+  <dl class="guide">
+    <div><dt>Rendimento atteso lordo, media annua</dt>
+      <dd>Media aritmetica ponderata dei rendimenti attesi di ogni titolo, prima di costi e imposte. Per gli ETF uso le stime BNY 2026; per le azioni singole il CAPM (2,5% + β × 5,2%). È la media dei singoli anni, quindi il capitale cresce meno di così: per il tasso composto guarda il CAGR.</dd></div>
+    <div><dt>Rendimento atteso netto dei costi</dt>
+      <dd>Rendimento lordo meno il TER ponderato. Imposte (26% sulle plusvalenze degli ETF, 12,5% su BTP) e bollo 0,2% restano fuori: dopo le tasse il rendimento scende ancora. Nel confronto del Portafoglio 2 su 20 anni, i mix A–D rendono circa 3,8–4,2% l'anno contro circa 4,5% del PAC Globale Ex-USA.</dd></div>
+    <div><dt>TER ponderato</dt>
+      <dd>Costo annuo dei fondi, pesato per la quota di ciascuno nel portafoglio. Più basso è meglio. Una differenza di 0,10 punti l'anno toglie circa il 2% del capitale finale in 20 anni.</dd></div>
+    <div><dt>Volatilità annua (σ)</dt>
+      <dd>Deviazione standard dei rendimenti in un anno: misura quanto un anno può scostarsi dalla media. Con media 7,6% e σ 15,3%, in circa due anni su tre il risultato cade tra −8% e +23%. Sono stime dei documenti, non misure su serie storiche del portafoglio. Per i portafogli DEGIRO e TR MY la calcolo combinando volatilità e β di ogni titolo con la volatilità del mercato globale al 16%.</dd></div>
+    <div><dt>CAGR netto stimato (R − σ²/2)</dt>
+      <dd>Tasso di crescita composto atteso: rendimento netto meno σ²/2, la perdita dovuta alla volatilità. Per il PAC Globale Ex-USA: 7,33% − 1,17 = 6,16%. È il numero da usare per proiettare il capitale; nessuno dei portafogli supera il 7%, quindi il target "superiore al 7%" vale solo come rendimento medio.</dd></div>
+    <div><dt>Sharpe ratio (Rf = 2,5%)</dt>
+      <dd>(Rendimento lordo − 2,5%) / σ: il rendimento sopra il tasso euro a breve per ogni punto di rischio. Più alto è meglio. Tra 0,30 e 0,35 i portafogli sono molto vicini, quindi le differenze contano poco.</dd></div>
+    <div><dt>Esposizione diretta USA</dt>
+      <dd>Quota del patrimonio in ETF che replicano indici statunitensi (S&amp;P 500, MSCI USA). Per i portafogli con ETF globali (PAC da 25 €, A, B, C) non c'è un ETF USA separato: uso la quota USA dentro gli indici, per esempio ~71% del MSCI World per l'80% in portafoglio, e la segno con ~. Le azioni americane (NVIDIA, Palantir, Tesla) contano al 100% e il Bitcoin non conta e il fondo obbligazionario globale per la quota USA del suo indice. Resta l'esposizione al dollaro tramite oro e mercati emergenti: vedi il cambio.</dd></div>
+    <div><dt>Cambio non coperto</dt>
+      <dd>Quota del patrimonio in valute diverse dall'euro senza copertura. Se il dollaro si indebolisce, quella parte perde valore in euro. Coprirla costa circa 1,1 punti l'anno, la distanza tra i tassi Fed e BCE. Qui non c'è un valore migliore in assoluto: più basso significa meno rischio di cambio e meno rendimento atteso.</dd></div>
+  </dl>
+  <h3>Note sui dati</h3>
+  <ul class="notes">
+    <li>Il TER del PAC Globale Ex-USA (0,25%) è un'ipotesi: il suo documento non fissava un vincolo di costo. Il suo cambio non coperto (oltre 80%) è la stima riportata nel documento del Portafoglio 2.</li>
+    <li>PAC da 25 €: il file indica TER 0,196% e un rendimento base del 7% come ipotesi, senza volatilità. Ho usato il 17% del Portafoglio B, che ha la stessa composizione 80/20; CAGR (5,36%) e Sharpe (0,26) ne derivano e restano più bassi di B perché partono da un rendimento più prudente.</li>
+    <li>Portafogli A, B, C (file del 23 ott 2026): il CAGR qui è sempre rendimento netto meno σ²/2, quindi risulta più basso del "CAGR realistico" dei file (A 6,28% contro 6,4%; B 6,16% contro 6,5%; C 6,44% contro 7,2%), che parte dal rendimento lordo con arrotondamenti.</li>
+    <li>Portafoglio C (ricalcolato il 24 ott 2026): la media ponderata dei rendimenti delle quattro componenti indicate nel file dà 7,93%, non l'8,2% dichiarato, quindi qui uso 7,93% lordo, 7,71% netto, CAGR 6,44% e Sharpe 0,33 (il file indicava 8,2%, CAGR 7,2%, Sharpe 0,36). Il TER ponderato sui titoli in tabella è 0,21% (SWDA al 60%), contro il ~0,18% del file.</li>
+    <li>IDEALE: rendimento medio 7,25% lordo e 7,06% netto, CAGR 6,29%. Rispetto al Portafoglio C ricalcolato ha CAGR quasi uguale con volatilità più bassa (12,4% contro 16%) e Sharpe più alto (0,37 contro 0,33); la mediana a 30 anni di C resta più alta di circa il 5%. L'esposizione USA indiretta (~40%) e il cambio non coperto (~88%) sono stime.</li>
+    <li>Portafoglio A: il TER di VWCE è 0,14% dopo la riduzione annunciata da Vanguard il 21 lug 2026 (da 0,19%). Il file usava 0,22%, quindi il netto qui è più alto di quello del documento.</li>
+    <li>Cambio non coperto, ">90%" per PAC 25 €, A, B, C: stima. Gli indici World e All-World contengono solo circa il 7–8% di Eurozona, e emergenti, small cap e oro sono quasi tutti in valuta estera.</li>
+    <li>DEGIRO e TR MY (portafogli attuali, file del 24 ott 2026): rendimenti ETF con le stime BNY 2026; azioni singole e covered call con il CAPM (2,5% + β × 5,2%), dove solo il β di NVIDIA (1,89, Trefis, 1 ott 2026) viene da fonte e gli altri β sono stime. Le volatilità delle azioni (NYU V-Lab, 23 ott 2026) sono previsioni a 1 giorno e possono superare la media di lungo periodo. Il portafoglio ha volatilità calcolata con un modello a indice singolo (σ mercato 16%), un metodo diverso da quello dei file più vecchi: confronto indicativo.</li>
+    <li>DEGIRO: esposizione USA ~80% (NVIDIA, i due ETF S&amp;P 500 e la quota USA di All-World) e cambio non coperto ~92% (solo A2A e liquidità sono in euro). TR MY: USA indiretta ~52% (S&amp;P 500, Eli Lilly, quota USA di All-World, small cap e fondo obbligazionario) e cambio non coperto ~75% (esclusi Poste e il fondo obbligazionario coperto in euro). Entrambe sono stime.</li>
+    <li>DEGIRO 2, TR MY2, DEGIRO (10), TRMY (10), DEGIRO (12), TRMY (12): scenari senza prodotti a leva dal documento Portafoglio_DEGIRO_TR_MY_Revisione (25 ott 2026). Sono le versioni riviste dei portafogli attuali, mostrati nei tab DEGIRO e TR MY. Rendimenti: ETF con le stime BNY 2026, titoli e prodotti nuovi con il CAPM (2,5% + β × 5,2%) e β stimati. Volatilità: modello a indice singolo con σ di mercato 16% e correlazione residua 0,7 tra i semiconduttori.</li>
+    <li>I numeri di rendimento, TER, σ, CAGR e Sharpe dei sei portafogli sono quelli del documento di revisione. L'esposizione USA e il cambio non coperto sono stime mie sui pesi: USA ~56%, ~40%, ~60%, ~63%, ~74%, ~79%; cambio ~98%, ~82%, ~98%, ~88%, ~98%, ~93% (nell'ordine della prima riga).</li>
+    <li>Il TER ponderato del documento non include il costo dell'ETP Bitcoin, ancora da scegliere: nelle versioni (10) e (12) di TR MY e in DEGIRO (12) il costo reale sarebbe più alto. Il TER di CNDX nella tabella è 0,30% (getquin), il documento usa un valore leggermente superiore.</li>
+    <li>Da verificare prima di operare: disponibilità sul broker di VanEck Semiconductor, Nasdaq 100, Palantir, Tesla e Bitcoin. Gli ISIN di questi titoli risultano da ricerca; l'ETP Bitcoin va ancora scelto. La classe obbligazionaria LU0378818131 è la 1C EUR Hedged.</li>
+    <li>Le versioni al 10% e al 12% hanno volatilità tra 24% e 34% e CAGR netto tra 6,3% e 6,9%: il rendimento medio è più alto ma la crescita composta resta vicina a quella dei portafogli più prudenti. Il CAGR più alto (6,96%) è di DEGIRO 2. Le simulazioni del documento danno probabilità di chiudere sotto il versato a 30 anni tra 0,8% (TR MY2) e 10,6% (TRMY (12)).</li>
+    <li>I rendimenti sono ipotesi di scenario e il CAGR è una stima semplificata, non una previsione.</li>
+  </ul>
+</section>
+</main>
+
+<script>
+(function(){
+  /* Fonte: PAC Globale ex-USA (P1), Portafoglio 2 euro-hedged e BTP (A-D), PAC 25 euro. */
+  var SW=function(w,alt){return {n:'iShares Core MSCI World (SWDA / IWDA / EUNL)',w:w,isin:[{c:'IE00B4L5Y983'}].concat(alt||[]),ter:0.20,fx:'non coperto',info:'Replica fisica · accumulazione · EUR 132,9 mld · 1.252 titoli (justETF)'};};
+  var EMI=function(w){return {n:'iShares Core MSCI EM IMI (EIMI)',w:w,isin:[{c:'IE00BKM4GZ66'}],ter:0.18,fx:'non coperto',info:'Replica fisica · accumulazione · EUR 38,4 mld · 2.902 titoli (justETF)'};};
+  var VWH=function(w){return {n:'Vanguard FTSE All-World UCITS ETF USD Acc (VWCE)',w:w,isin:[{c:'IE00BK5BQT80'}],ter:0.14,fx:'non coperto',info:'Replica fisica · accumulazione · USD 62,7 mld · USA 60,5% (getquin)'};};
+  var SEH=function(w){return {n:'iShares MSCI EM UCITS ETF USD Acc (SEMA)',w:w,isin:[{c:'IE00B4L5YC18'}],ter:0.18,fx:'non coperto',info:'Replica fisica · accumulazione · USD 10,6 mld (getquin)'};};
+  var WSH=function(w){return {n:'iShares MSCI World Small Cap (WSML)',w:w,isin:[{c:'IE00BF4RFH31'}],ter:0.35,fx:'non coperto',info:'Replica fisica · accumulazione · USD 8,9 mld · USA 59,1% (getquin)'};};
+  var SMH=function(w){return {n:'VanEck Semiconductor UCITS ETF (VVSM)',w:w,isin:[{c:'IE00BMC38736'}],ter:0.35,fx:'USD',info:'Accumulazione · EUR 8,4 mld · Nord America 74,4% (Wealthyhood). TER 0,35% dal documento di revisione: la scheda online riporta un valore anomalo, da verificare sul KID'};};
+  var NDH=function(w){return {n:'iShares Nasdaq 100 UCITS ETF USD Acc (CNDX)',w:w,isin:[{c:'IE00B53SZB19'}],ter:0.30,fx:'USD',info:'Replica fisica · accumulazione · USD 29,3 mld · USA 95,5% (getquin)'};};
+  var NVH=function(w){return {n:'NVIDIA Corporation',w:w,isin:[{c:'US67066G1040'}],ter:0,fx:'USD',info:'Azione · Nasdaq · rend. atteso 12,4% (CAPM, β 1,9) · σ 45% (Trefis, 1 ott 2026)'};};
+  var PLH=function(w){return {n:'Palantir Technologies',w:w,isin:[{c:'US69608A1088'}],ter:0,fx:'USD',info:'Azione · rendimento atteso con CAPM e β stimato (documento di revisione)'};};
+  var TSH=function(w){return {n:'Tesla',w:w,isin:[{c:'US88160R1014'}],ter:0,fx:'USD',info:'Azione · rendimento atteso con CAPM e β stimato (documento di revisione)'};};
+  var BTH=function(w){return {n:'ETP Bitcoin fisico (da scegliere)',w:w,isin:null,ter:null,fx:'USD',info:'Il TER non è incluso nel calcolo del documento: un ETP reale ha un costo non nullo'};};
+  var GDH=function(w){return {n:'WisdomTree Core Physical Gold USD Acc',w:w,isin:[{c:'JE00BN2CJ301'}],ter:0.12,fx:'USD',info:'Oro fisico · accumulazione · USD 2,16 mld (getquin)'};};
+  var BDH=function(w){return {n:'Xtrackers Global Government Bond UCITS ETF 1C EUR Hedged',w:w,isin:[{c:'LU0378818131'}],ter:0.25,fx:'coperto in euro',info:'Indice FTSE WGBI mercati sviluppati · EUR 715,9 mln · USA ~47% dell\'indice (extraETF)'};};
+  var revNote='Dal documento Portafoglio_DEGIRO_TR_MY_Revisione (25 ott 2026): senza prodotti a leva, modello a indice singolo con σ di mercato 16%, rendimenti ETF BNY CMA 2026 e CAPM con β stimati per titoli e prodotti nuovi. Il portafoglio attuale è il tab omonimo (DEGIRO o TR MY).';
+  var IUH=function(w){return {n:'iShares Core S&P 500 UCITS ETF USD Dist (IUSA)',w:w,isin:[{c:'IE0031442068'}],ter:0.07,fx:'USD',info:'Replica fisica · distribuzione trimestrale · EUR 20,6 mld · rend. atteso 7,6% · σ 15,9% (BNY CMA 2026)'};};
+  var CSH=function(w){return {n:'iShares Core S&P 500 UCITS ETF USD Acc (CSPX)',w:w,isin:[{c:'IE00B5BMR087'}],ter:0.07,fx:'USD',info:'Replica fisica · accumulazione · EUR 139,8 mld · 503 titoli · rend. atteso 7,6% · σ 15,9% (BNY CMA 2026)'};};
+  var CCH=function(w){return {n:'Global X S&P 500 Covered Call UCITS ETF USD Dist',w:w,isin:[{c:'IE0002L5QB31'}],ter:0.45,fx:'USD',info:'Replica sintetica · indice Cboe S&P 500 BuyWrite · USD 222,7 mln · rend. 6,0% (CAPM, β 0,7 stima) · σ 12%. Limita il rialzo'};};
+  var XIH=function(w){return {n:'Xiaomi Corporation',w:w,isin:[{c:'KYG9830T1067'}],ter:0,fx:'HKD',info:'Azione · Hong Kong · rend. 9,8% (CAPM, β 1,4 stima) · σ 53% (NYU V-Lab)'};};
+  var A2H=function(w){return {n:'A2A S.p.A.',w:w,isin:[{c:'IT0001233417'}],ter:0,fx:'nessuno (euro)',info:'Azione · Borsa Italiana · rend. 5,6% (CAPM, β 0,6 stima) · σ 21% (NYU V-Lab)'};};
+  var PIH=function(w){return {n:'Poste Italiane',w:w,isin:[{c:'IT0003796171'}],ter:0,fx:'nessuno (euro)',info:'Azione · Borsa Italiana · rend. 6,7% (CAPM, β 0,8 stima) · σ 28% (NYU V-Lab)'};};
+  var ELH=function(w){return {n:'Eli Lilly and Company',w:w,isin:[{c:'US5324571083'}],ter:0,fx:'USD',info:'Azione · NYSE · rend. 4,6% (CAPM, β 0,4 stima) · σ 35% (volatilità implicita 38,7%)'};};
+  var P=[   {id:'p1',n:'PAC Globale Ex-USA',s:'PAC Globale Ex-USA',c:'--c0',
+    m:{lordo:7.58,ter:0.25,netto:7.33,vol:15.3,cagr:6.16,sharpe:0.33,usa:10,fx:80},
+    fxPre:'>',fxSub:'stima',terNote:'ipotesi',
+    h:[
+     {n:'Azionario sviluppato Europa + Asia-Pacifico (ETF UCITS MSCI Europe / MSCI Pacific ex Japan)',w:35,isin:null,ter:null,fx:'in valuta locale'},
+     {n:'Azionario Mercati Emergenti ampio (ETF UCITS MSCI EM IMI)',w:38,isin:null,ter:null,fx:'non coperto'},
+     {n:'Azionario USA, quota satellite (ETF UCITS S&P 500 / MSCI USA)',w:10,isin:null,ter:null,fx:'USD'},
+     {n:'Oro e metalli preziosi (ETC su oro fisico)',w:9,isin:null,ter:null,fx:'USD'},
+     {n:'Obbligazionario EM hard currency (ETF UCITS Bloomberg/JPM EM USD Aggregate)',w:8,isin:null,ter:null,fx:'USD'}],
+    note:'Il documento definisce le classi di attivo e il tipo di strumento, non gli ETF specifici: gli ISIN vanno scelti (classe ad accumulazione, TER contenuto).'},
+   {id:'a',n:'Portafoglio 2 · Mix A',s:'Mix A',c:'--c1',
+    m:{lordo:5.64,ter:0.06,netto:5.58,vol:8.9,cagr:5.19,sharpe:0.35,usa:0,fx:20}},
+   {id:'b',n:'Portafoglio 2 · Mix B',s:'Mix B',c:'--c2',
+    m:{lordo:6.16,ter:0.08,netto:6.07,vol:11.1,cagr:5.46,sharpe:0.33,usa:0,fx:30}},
+   {id:'c',n:'Portafoglio 2 · Mix C',s:'Mix C',c:'--c3',
+    m:{lordo:6.73,ter:0.11,netto:6.61,vol:13.6,cagr:5.69,sharpe:0.31,usa:0,fx:45}},
+   {id:'d',n:'Portafoglio 2 · Mix D',s:'Mix D',c:'--c4',
+    m:{lordo:7.16,ter:0.14,netto:7.02,vol:15.6,cagr:5.80,sharpe:0.30,usa:0,fx:60}},
+   {id:'pac',n:'PAC 25 € · MSCI World + EM IMI',s:'PAC 25 €',c:'--c5',
+    m:{lordo:7.00,ter:0.196,netto:6.80,vol:17,cagr:5.36,sharpe:0.26,usa:57,fx:90},
+    terDp:3,usaPre:'~',fxPre:'>',fxSub:'stima',volSub:'da Portafoglio B',
+    h:[SW(80),EMI(20)],
+    note:'Alternativa a un solo ETF se il broker non accetta rate da 5 €: Vanguard FTSE All-World (VWCE), ISIN IE00BK5BQT80, secondo il tuo file (oggi con TER 0,14%, vedi Portafoglio A).'},
+   {id:'oa',n:'Portafoglio A · Massima Semplicità',s:'Portafoglio A',c:'--c6',
+    m:{lordo:7.7,ter:0.14,netto:7.56,vol:16,cagr:6.28,sharpe:0.33,usa:60,fx:90},
+    usaPre:'~',fxPre:'>',fxSub:'stima',terNote:'il file indicava 0,22%',
+    h:[{n:'Vanguard FTSE All-World UCITS ETF (VWCE)',w:100,isin:[{c:'IE00BK5BQT80'}],ter:0.14,fx:'non coperto',info:'Replica fisica · accumulazione · USD 62,7 mld · USA 60,5% · ~10% emergenti (getquin)'}],
+    note:'Un solo ETF su circa 3.800 titoli di 47 paesi. Il TER di 0,14% viene dalla riduzione annunciata da Vanguard il 21 lug 2026 (da 0,19%, data di entrata in vigore non indicata); il tuo file riportava 0,22%. Alternative citate nel file: Amundi Prime All Country World (WEBN, ISIN IE0003XJA0J9, TER 0,07%, USD 835 mln secondo etfstream) e SPDR MSCI ACWI IMI (SPYI, ISIN da verificare).'},
+   {id:'ob',n:'Portafoglio B · World/EM 80/20',s:'Portafoglio B',c:'--c7',
+    m:{lordo:7.8,ter:0.196,netto:7.60,vol:17,cagr:6.16,sharpe:0.31,usa:57,fx:90},
+    terDp:3,usaPre:'~',fxPre:'>',fxSub:'stima',
+    h:[SW(80),EMI(20)],
+    note:'Stessa composizione del PAC da 25 €. Cambia l\'ipotesi di rendimento: 7,8% (Capital Market Assumptions BNY 2026) contro il 7,0% base del PAC. Il file indica un satellite emergenti con circa 22,75% di semiconduttori e volatilità a 1 anno del 21,36%.'},
+   {id:'oc',n:'Portafoglio C · Allocazione Senior',s:'Portafoglio C',c:'--c8',
+    m:{lordo:7.93,ter:0.2145,netto:7.71,vol:16,cagr:6.44,sharpe:0.33,usa:50,fx:90},
+    usaPre:'~',fxPre:'>',fxSub:'stima',terNote:'il file indicava ~0,18%',volSub:'rendimento ricalcolato: il file indicava 8,2%',
+    h:[SW(60,[{c:'IE0003XJA0J9',l:'alternativa: Amundi Prime All Country World (WEBN), TER 0,07%'}]),EMI(20),
+     {n:'iShares MSCI World Small Cap (WSML)',w:15,isin:[{c:'IE00BF4RFH31'}],ter:0.35,fx:'non coperto',info:'Replica fisica · accumulazione · USD 8,9 mld · USA 59,1% (getquin)'},
+     {n:'iShares Physical Gold ETC (SGLN / IGLN)',w:5,isin:[{c:'IE00B4ND3602'},{c:null,l:'alternativa: WisdomTree Physical Gold (PHAU), ISIN da verificare'}],ter:0.12,fx:'USD',info:'Oro fisico · USD 38,7 mld (getquin)'}],
+    note:'WEBN include già i mercati emergenti: usarlo al posto di SWDA porterebbe l\'esposizione emergenti oltre il 20% indicato. Rendimenti attesi per componente nel file: World 7,7%, EM 8,1%, small cap ~9,3%, oro 5,8%.'},
+   {id:'id',n:'IDEALE · Rendimento / rischio',s:'IDEALE',c:'--c9',
+    m:{lordo:7.25,ter:0.1955,netto:7.06,vol:12.4,cagr:6.29,sharpe:0.37,usa:40,fx:88},
+    terDp:2,usaPre:'~',fxPre:'~',fxSub:'stima',terNote:'ipotesi su EM obbl. 0,25%',
+    h:[SW(47,[{c:'IE0003XJA0J9',l:'alternativa: Amundi Prime All Country World (WEBN): include già emergenti, ridurre il peso EM'}]),EMI(8),
+     {n:'iShares MSCI World Small Cap (WSML)',w:15,isin:[{c:'IE00BF4RFH31'}],ter:0.35,fx:'non coperto',info:'Replica fisica · accumulazione · USD 8,9 mld · USA 59,1% (getquin)'},
+     {n:'iShares Physical Gold ETC (SGLN / IGLN)',w:8,isin:[{c:'IE00B4ND3602'}],ter:0.12,fx:'USD'},
+     {n:'BTP diretti, metà a 5 anni e metà a 7-10 anni (MOT)',w:12,isin:[{c:null,l:'Il BTP Valore ha chiuso il collocamento il 23 ott 2026: usare BTP sul mercato secondario, ISIN da verificare'}],ter:0,fx:'nessuno (euro)'},
+     {n:'ETF UCITS obbligazionario EM hard currency (indice Bloomberg/JPM EM USD Aggregate, non coperto)',w:10,isin:null,ter:0.25,fx:'USD'}],
+    note:'Sei classi di attivo scelte con un\'ottimizzazione sul CAGR atteso con volatilità massima 12,5% e limiti di prudenza (mondo ≥40%, EM 8-15%, small cap ≤15%, oro ≤8%, titoli di Stato ≤20%, obbligazioni EM ≤10%). Rata su 300 €: 141 / 24 / 45 / 24 / 36 / 30 €. Volatilità, correlazioni e rendimento small cap (~9,3%) sono stime del team. Il PDF completo è nel progetto (Portafoglio_IDEALE.pdf).'},
+   {id:'dg',n:'DEGIRO',s:'DEGIRO',c:'--c16',
+    m:{lordo:9.07,ter:0.095,netto:8.98,vol:23.6,cagr:6.19,sharpe:0.28,usa:80,fx:92},
+    terDp:3,usaPre:'~',fxPre:'~',fxSub:'stima',volSub:'stima da modello',
+    h:[VWH(34),NVH(37),IUH(13.5),CCH(8.5),XIH(1.8),A2H(1),{n:'Liquidità (residuo non indicato)',w:4.2,isin:false,ter:0,fx:'nessuno (euro)',info:'Ipotesi: contanti al 2,5% senza rischio'}],
+    note:'Portafoglio concentrato: un ETF globale, il 37% su NVIDIA, due ETF sull\'S&P 500 (uno covered call) e piccole posizioni su Xiaomi e A2A. I pesi indicati sommano 95,8%: il 4,2% restante è trattato come liquidità. Lettura: il rendimento medio più alto del confronto tra i portafogli attuali (9,07%) dipende dal 37% su NVIDIA (CAPM 12,4%, β 1,9); la volatilità di 23,6% porta il CAGR netto a 6,19% e lo Sharpe a 0,28, tra i più bassi. Un solo titolo oltre un terzo del patrimonio rende il risultato molto sensibile a un solo mercato. Se il 4,2% non fosse liquidità ma investito in proporzione sugli stessi titoli: rendimento lordo 9,36%, σ 24,7%, CAGR netto 6,22%, Sharpe 0,28. Il covered call limita il rialzo e il suo rendimento è una stima con il solo CAPM. Con 300 €/mese a CAGR 6,19%: circa 304.088 € a 30 anni e 603.882 € a 40 anni (lordo costi e imposte).'},
+   {id:'tr',n:'TR MY',s:'TR MY',c:'--c17',
+    m:{lordo:6.75,ter:0.13,netto:6.62,vol:12.8,cagr:5.80,sharpe:0.33,usa:52,fx:75},
+    terDp:2,usaPre:'~',fxPre:'~',fxSub:'stima',volSub:'stima da modello',
+    h:[VWH(40),CSH(12),PIH(12),BDH(12),ELH(12),SEH(8),GDH(8),{n:'iShares MSCI World Small Cap ESG Enhanced UCITS ETF USD Acc',w:8,isin:[{c:'IE000T9EOCL3'}],ter:0.35,fx:'non coperto',info:'Replica fisica · USD 71 mln · USA 60,4% · rend. 9,3% (stima del file) · σ 19%'}],
+    note:'Portafoglio diversificato con ETF globali, azioni singole (Poste Italiane, Eli Lilly), obbligazionario globale coperto in euro e oro. I pesi indicati sommano 112% e sono stati normalizzati a 100%: se un peso è sbagliato va ricalcolato. Lettura: è il profilo più prudente tra i portafogli con azioni singole (volatilità 12,8%, CAGR netto 5,80%), in linea con i Mix C/D del Portafoglio 2 ma con più rischio dollaro. Eli Lilly e Poste pesano ciascuna circa 10,7%: due titoli singoli concentrano il rischio specifico. Strumenti identificati dai nomi indicati: obbligazionario globale, MSCI EM e Core Physical Gold vanno verificati con gli ISIN reali; la classe obbligazionaria corretta è la 1C EUR Hedged (LU0378818131, non la 3C USD Hedged LU0641006456). Con 300 €/mese a CAGR 5,80%: circa 283.346 € a 30 anni e 546.408 € a 40 anni (lordo costi e imposte).'},
+   {id:'d2',n:'DEGIRO 2',s:'DEGIRO 2',c:'--c10',
+    m:{lordo:9.88,ter:0.205,netto:9.67,vol:23.3,cagr:6.96,sharpe:0.32,usa:56,fx:98},
+    terDp:3,usaPre:'~',fxPre:'~',fxSub:'stima',volSub:'stima da modello',
+    h:[SEH(20),WSH(20),SMH(20),NDH(5),NVH(20),PLH(5),GDH(10)],
+    note:revNote+' Scenario a pari rischio del DEGIRO attuale, con la diversificazione migliorata.'},
+   {id:'t2',n:'TR MY2',s:'TR MY2',c:'--c13',
+    m:{lordo:7.25,ter:0.203,netto:7.05,vol:13.0,cagr:6.20,sharpe:0.37,usa:40,fx:82},
+    terDp:3,usaPre:'~',fxPre:'~',fxSub:'stima',volSub:'stima da modello',
+    h:[VWH(36),SEH(20),WSH(20),GDH(10),BDH(14)],
+    note:revNote+' Scenario a pari rischio di TR MY: stesso Sharpe di IDEALE (0,37) con volatilità 13,0%.'},
+   {id:'d10',n:'DEGIRO (10)',s:'DEGIRO (10)',c:'--c11',
+    m:{lordo:10.13,ter:0.216,netto:9.91,vol:24.7,cagr:6.86,sharpe:0.31,usa:60,fx:98},
+    terDp:3,usaPre:'~',fxPre:'~',fxSub:'stima',volSub:'stima da modello',
+    h:[SEH(20),WSH(20),SMH(25),NDH(5),NVH(20),PLH(5),GDH(5)],
+    note:revNote+' Target 10% di rendimento lordo.'},
+   {id:'t10',n:'TRMY (10)',s:'TRMY (10)',c:'--c14',
+    m:{lordo:10.02,ter:0.133,netto:9.89,vol:24.4,cagr:6.92,sharpe:0.31,usa:63,fx:88},
+    terDp:3,usaPre:'~',fxPre:'~',fxSub:'stima',volSub:'stima da modello',
+    h:[VWH(10),SEH(10),WSH(15),SMH(5),NVH(20),PLH(10),TSH(10),BTH(5),GDH(5),BDH(10)],
+    note:revNote+' Target 10% di rendimento lordo.'},
+   {id:'d12',n:'DEGIRO (12)',s:'DEGIRO (12)',c:'--c12',
+    m:{lordo:12.05,ter:0.114,netto:11.93,vol:32.5,cagr:6.64,sharpe:0.29,usa:74,fx:98},
+    terDp:3,usaPre:'~',fxPre:'~',fxSub:'stima',volSub:'stima da modello',
+    h:[SEH(5),WSH(20),SMH(10),NVH(20),PLH(20),TSH(15),BTH(10)],
+    note:revNote+' Target 12% di rendimento lordo: a questo livello la volatilità riduce il CAGR rispetto al 10%.'},
+   {id:'t12',n:'TRMY (12)',s:'TRMY (12)',c:'--c15',
+    m:{lordo:12.00,ter:0.072,netto:11.93,vol:33.7,cagr:6.27,sharpe:0.28,usa:79,fx:93},
+    terDp:3,usaPre:'~',fxPre:'~',fxSub:'stima',volSub:'stima da modello',
+    h:[VWH(5),WSH(15),NVH(25),PLH(25),TSH(15),BTH(10),BDH(5)],
+    note:revNote+' Target 12% di rendimento lordo: a questo livello la volatilità riduce il CAGR rispetto al 10%.'}
+  ];
+  var mixH=function(emu,em,btp){return [
+    {n:'UBS Core MSCI EMU UCITS ETF acc · azionario Eurozona',w:emu,isin:[{c:'LU0950668870'}],ter:0.09,fx:'nessuno (euro)'},
+    {n:'Amundi MSCI Emerging Markets Swap UCITS ETF acc · azionario emergenti',w:em,isin:[{c:'LU1681045370'}],ter:0.20,fx:'non coperto'},
+    {n:'iShares Physical Gold ETC · oro fisico',w:10,isin:[{c:'IE00B4ND3602'}],ter:0.12,fx:'non coperto (USD)'},
+    {n:'BTP diretti',w:btp,isin:[{c:'IT0005735201',l:'BTP Valore 27/10/2031'},{c:'IT0005735227',l:'BTP Valore Insieme 27/10/2031'},{c:null,l:'BTP nov 2031 (MOT): ISIN da verificare'}],ter:0,fx:'nessuno (euro)'}];};
+  var mixNote='Il BTP Valore è in collocamento fino al 23 ott 2026 alle 13:00 e può chiudere prima; le cedole annunciate sono un minimo. Se incolli gli ISIN della tua watchlist li sostituisco con stessi pesi e scadenze.';
+  P[1].h=mixH(30,10,50);P[2].h=mixH(35,20,35);P[3].h=mixH(35,35,20);P[4].h=mixH(30,50,10);
+  [1,2,3,4].forEach(function(i){P[i].note=mixNote;});
+
+  var ROWS=[
+   {g:'Rendimento'},
+   {k:'lordo',l:'Rendimento atteso lordo, media annua',d:1,f:'pct2'},
+   {k:'netto',l:'Rendimento atteso netto dei costi',d:1,f:'pct2'},
+   {k:'cagr',l:'CAGR netto stimato (R − σ²/2)',d:1,f:'pct2'},
+   {g:'Costi e rischio'},
+   {k:'ter',l:'TER ponderato',d:-1,f:'ter'},
+   {k:'vol',l:'Volatilità annua (σ)',d:-1,f:'pct1'},
+   {k:'sharpe',l:'Sharpe ratio (Rf = 2,5%)',d:1,f:'num2'},
+   {g:'Esposizioni'},
+   {k:'usa',l:'Esposizione diretta USA',d:0,f:'pct0'},
+   {k:'fx',l:'Cambio non coperto',d:0,f:'fx'}
+  ];
+  var it=function(x,dp){return x.toFixed(dp).replace('.',',');};
+  function fmt(r,p){var v=p.m[r.k];
+    if(v===null||v===undefined)return {t:'n.d.',nd:true};
+    if(r.f==='pct2')return {t:it(v,2)+'%'};
+    if(r.f==='pct1')return {t:it(v,1)+'%',sub:p.volSub||null};
+    if(r.f==='pct0')return {t:(p.usaPre||'')+v+'%',sub:p.usaPre?'indiretto, stima':null};
+    if(r.f==='num2')return {t:it(v,2)};
+    if(r.f==='ter')return {t:it(v,p.terDp||2)+'%',sub:p.terNote};
+    if(r.f==='fx')return {t:(p.fxPre||'')+v+'%',sub:p.fxSub||null};
+    return {t:String(v)};
+  }
+  function fxFmt(p){return null;}
+  var LBL={p1:'Ex-USA',a:'Mix A',b:'Mix B',c:'Mix C',d:'Mix D',pac:'PAC 25 €',oa:'Port. A',ob:'Port. B',oc:'Port. C',dg:'DEGIRO',tr:'TR MY',d2:'DEGIRO 2',t2:'TR MY2',d10:'DEGIRO (10)',t10:'TRMY (10)',d12:'DEGIRO (12)',t12:'TRMY (12)','id':'IDEALE'};
+  P.forEach(function(p){p.l=LBL[p.id];});
+
+  var sel={};P.forEach(function(p){sel[p.id]=true;});
+  var chips=document.getElementById('chips');
+  P.forEach(function(p){var b=document.createElement('button');b.type='button';b.className='chip';b.id='chip-'+p.id;
+    b.style.setProperty('--c','var('+p.c+')');b.setAttribute('aria-pressed','true');
+    b.innerHTML='<i></i>'+p.s;
+    b.addEventListener('click',function(){var n=P.filter(function(q){return sel[q.id];}).length;
+      if(sel[p.id]&&n===1)return; sel[p.id]=!sel[p.id];b.setAttribute('aria-pressed',String(sel[p.id]));renderAll();});
+    chips.appendChild(b);});
+
+  function renderTable(){
+    var vis=P.filter(function(p){return sel[p.id];});
+    var th='<tr><th></th>'+vis.map(function(p){return '<th style="--c:var('+p.c+')"><span class="sw"></span>'+p.n.replace(' · ','<span class="hint">')+ (p.n.indexOf(' · ')>-1?'</span>':'')+'</th>';}).join('')+'</tr>';
+    document.getElementById('thead').innerHTML=th;
+    var out='';
+    ROWS.forEach(function(r){
+      if(r.g){out+='<tr class="grp"><td colspan="'+(vis.length+1)+'">'+r.g+'</td></tr>';return;}
+      var vals=vis.map(function(p){var v=p.m[r.k];return (v===null||v===undefined)?null:v;});
+      var best=null;
+      if(r.d!==0){var nums=vals.filter(function(v){return v!==null;});
+        if(nums.length>1)best=r.d>0?Math.max.apply(null,nums):Math.min.apply(null,nums);}
+      out+='<tr><td>'+r.l+'</td>';
+      vis.forEach(function(p,i){var f=(r.k==='fx'&&fxFmt(p))||fmt(r,p);
+        var cls='n'+(f.nd?' nd':'')+((best!==null&&vals[i]===best)?' best':'');
+        out+='<td class="'+cls+'">'+f.t+(f.sub?'<span class="sub">'+f.sub+'</span>':'')+'</td>';});
+      out+='</tr>';
+    });
+    document.getElementById('tbody').innerHTML=out;
+  }
+
+  function renderChart(){
+    var W=680,H=340,L=54,R=24,T=16,B=44,xmin=8,xmax=36,ymin=5,ymax=7.5,placed=[];
+    var X=function(v){return L+(W-L-R)*(v-xmin)/(xmax-xmin);},Y=function(v){return T+(H-T-B)*(1-(v-ymin)/(ymax-ymin));};
+    var s='';
+    [5,5.5,6,6.5,7,7.5].forEach(function(v){s+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="var(--line)"/><text x="'+(L-8)+'" y="'+(Y(v)+4)+'" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--f-mono)">'+it(v,1)+'%</text>';});
+    [8,12,16,20,24,28,32,36].forEach(function(v){s+='<line x1="'+X(v)+'" x2="'+X(v)+'" y1="'+T+'" y2="'+(H-B)+'" stroke="var(--line)" stroke-dasharray="2 4"/><text x="'+X(v)+'" y="'+(H-B+18)+'" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="var(--f-mono)">'+v+'%</text>';});
+    s+='<text x="'+((L+W-R)/2)+'" y="'+(H-6)+'" text-anchor="middle" font-size="12" fill="var(--ink2)" font-family="var(--f-body)">Volatilità annua σ</text>';
+    s+='<text transform="translate(14,'+((T+H-B)/2)+') rotate(-90)" text-anchor="middle" font-size="12" fill="var(--ink2)" font-family="var(--f-body)">CAGR netto stimato</text>';
+    P.forEach(function(p){ if(!sel[p.id]||p.m.vol===null||p.m.cagr===null)return;
+      var x=X(p.m.vol),y=Y(p.m.cagr),lw=p.l.length*6.6+6,ly=y-12,offs=[-12,20,-27,35,-42];
+      for(var oi=0;oi<offs.length;oi++){var cy=y+offs[oi],ok=true;placed.forEach(function(r){if(Math.abs(r.x-x)<(r.w+lw)/2&&Math.abs(r.y-cy)<14)ok=false;});if(ok){ly=cy;break;}}
+      placed.push({x:x,y:ly,w:lw});
+      s+='<circle cx="'+x+'" cy="'+y+'" r="6.5" fill="var('+p.c+')" stroke="var(--surface)" stroke-width="2"/><text x="'+x+'" y="'+ly+'" text-anchor="middle" font-size="12" fill="var(--ink)" font-family="var(--f-body)">'+p.l+'</text>';});
+    document.getElementById('chart').innerHTML=s;
+  }
+
+  var cur='p1';
+  function renderTabs(){
+    var t=document.getElementById('tabs');t.innerHTML='';
+    P.forEach(function(p){var b=document.createElement('button');b.type='button';b.className='tab';b.setAttribute('role','tab');
+      b.setAttribute('aria-selected',String(p.id===cur));b.style.setProperty('--c','var('+p.c+')');
+      b.innerHTML='<i></i>'+p.s;b.addEventListener('click',function(){cur=p.id;renderTabs();renderHold();});t.appendChild(b);});
+  }
+  function copy(el,txt){try{navigator.clipboard.writeText(txt).then(function(){el.textContent='copiato';setTimeout(function(){el.textContent=txt;},900);},function(){sel2(el);});}catch(e){sel2(el);}}
+  function sel2(el){try{var r=document.createRange();r.selectNodeContents(el);var s=window.getSelection();s.removeAllRanges();s.addRange(r);}catch(e){}}
+  function renderHold(){
+    var p=P.filter(function(q){return q.id===cur;})[0],tb=document.getElementById('hbody');tb.innerHTML='';
+    var tot=0;
+    var sumW=p.h.reduce(function(a,x){return a+x.w;},0),nm=Math.abs(sumW-100)>0.05;
+    p.h.forEach(function(h){tot+=h.w;var tr=document.createElement('tr');tr.style.setProperty('--c','var('+p.c+')');
+      var isinCell='';
+      var td1=document.createElement('td');td1.textContent=h.n;
+      if(h.info){var sp1=document.createElement('span');sp1.className='sub';sp1.textContent=h.info;td1.appendChild(sp1);}
+      tr.appendChild(td1);
+      var td2=document.createElement('td');td2.style.textAlign='left';
+      if(h.isin===false){td2.innerHTML='<span class="todo">n/a</span>';}
+      else if(!h.isin){td2.innerHTML='<span class="todo">Da scegliere</span>';}
+      else{var box=document.createElement('div');box.className='isins';
+        h.isin.forEach(function(i){var row=document.createElement('div');
+          if(i.c){var b=document.createElement('button');b.type='button';b.className='code';b.textContent=i.c;b.title='Copia ISIN';
+            b.addEventListener('click',function(){copy(b,i.c);});row.appendChild(b);}
+          if(i.l){var sp=document.createElement('span');sp.className='small';sp.textContent=(i.c?' ':'')+i.l;row.appendChild(sp);}
+          box.appendChild(row);});td2.appendChild(box);}
+      tr.appendChild(td2);
+      var td3=document.createElement('td');var wn=h.w/sumW*100;td3.innerHTML='<div class="wcell"><span class="mono">'+String(h.w).replace('.',',')+'%'+(nm?'<span class="hint">'+it(wn,1)+'% norm.</span>':'')+'</span><span class="wbar"><span style="width:'+wn+'%"></span></span></div>';tr.appendChild(td3);
+      var td4=document.createElement('td');td4.className='n';td4.textContent=h.ter===null?'n.d.':it(h.ter,2)+'%';if(h.ter===null)td4.className+=' nd';tr.appendChild(td4);
+      var td5=document.createElement('td');td5.style.fontSize='13px';td5.textContent=h.fx;tr.appendChild(td5);
+      tb.appendChild(tr);});
+    var tf=document.createElement('tr');tf.innerHTML='<td><b>Totale</b></td><td></td><td class="n"><b>'+(Math.round(tot*10)/10+'').replace('.',',')+'%'+(nm?' → 100%':'')+'</b></td><td></td><td></td>';tb.appendChild(tf);
+    document.getElementById('hnote').textContent=p.note;
+  }
+  function renderAll(){renderTable();renderChart();}
+  renderAll();renderTabs();renderHold();
+})();
+</script>
+
+</body></html>
