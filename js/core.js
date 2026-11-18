@@ -1,5 +1,6 @@
 // Nucleo: formati, classificazione, calcolo delle metriche, stato persistente.
 import { SEED } from './seed.js';
+import { auth, db, doc, getDoc, setDoc, onSnapshot } from './firebase.js';
 
 export const RF = 2.5; // tasso privo di rischio usato per lo Sharpe (come nel progetto)
 
@@ -159,44 +160,67 @@ export function computeMetrics(holdings, rhoEq = 0.9) {
   return res;
 }
 
-/* ---------- stato persistente ---------- */
+/* ---------- stato: Firestore (users/{uid}/data/state), con copia locale di riserva ---------- */
 export const state = {
   portfolios: [],       // portafogli dell'utente (PDF, combinati, JSON, manuali)
-  plans: [null, null, null, null, null], // 5 piani principali: {pid, note, next, review}
+  plans: [null, null, null, null, null], // 5 piani principali: {pid, note, next, review, monthly}
   settings: { rho: 0.9, rf: 2.5 },
-  imported: {},         // file della cartella inbox già letti: nome|dimensione|data → id portafoglio
   hidden: []            // id dei portafogli di base nascosti dall'utente
 };
 
 const listeners = new Set();
 export const onChange = fn => { listeners.add(fn); return () => listeners.delete(fn); };
-let saveTimer = null, serverOk = true;
+const notify = kind => listeners.forEach(f => f(kind));
+let saveTimer = null, serverOk = true, lastJson = '';
+export const isServerOk = () => serverOk;
 
+const stateRef = () => doc(db, 'users', auth.currentUser.uid, 'data', 'state');
+const serialize = () => JSON.parse(JSON.stringify({ version: 1, portfolios: state.portfolios, plans: state.plans, settings: state.settings, hidden: state.hidden }));
+export const backupJson = () => JSON.stringify(serialize(), null, 2);
+
+function applyData(data) {
+  state.portfolios = Array.isArray(data.portfolios) ? data.portfolios : [];
+  state.plans = Array.isArray(data.plans) ? data.plans.concat([null, null, null, null, null]).slice(0, 5) : [null, null, null, null, null];
+  state.settings = { ...state.settings, ...(data.settings || {}) };
+  state.hidden = Array.isArray(data.hidden) ? data.hidden : [];
+  invalidate();
+}
+
+/* legge i dati dal cloud; se non ci riesce usa la copia locale */
 export async function loadState() {
   let data = null;
-  try { const r = await fetch('/api/state', { cache: 'no-store' }); if (r.ok) data = await r.json(); } catch { serverOk = false; }
-  if (!data || !data.version) { try { data = JSON.parse(localStorage.getItem('pl-state') || 'null'); } catch { data = null; } }
-  if (data && data.version) {
-    state.portfolios = Array.isArray(data.portfolios) ? data.portfolios : [];
-    state.plans = Array.isArray(data.plans) ? data.plans.concat([null, null, null, null, null]).slice(0, 5) : state.plans;
-    state.settings = { ...state.settings, ...(data.settings || {}) };
-    state.imported = data.imported && typeof data.imported === 'object' ? data.imported : {};
-    state.hidden = Array.isArray(data.hidden) ? data.hidden : [];
-  }
-  return serverOk;
+  try { const snap = await getDoc(stateRef()); data = snap.exists() ? snap.data() : null; serverOk = true; }
+  catch { serverOk = false; }
+  if (!data) { try { data = JSON.parse(localStorage.getItem('pl-state') || 'null'); } catch { data = null; } }
+  if (data && data.version) applyData(data);
+  lastJson = JSON.stringify(serialize());
+}
+
+/* riceve le modifiche fatte dall'altro dispositivo (PC o cellulare) */
+export function watchRemote() {
+  return onSnapshot(stateRef(), snap => {
+    if (!snap.exists() || snap.metadata.hasPendingWrites) return;
+    applyData(snap.data());
+    const json = JSON.stringify(serialize());
+    if (json === lastJson) return;
+    lastJson = json;
+    notify('remote');
+  }, () => { serverOk = false; notify('saved'); });
 }
 
 export function save() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
-    const body = JSON.stringify({ version: 1, portfolios: state.portfolios, plans: state.plans, settings: state.settings, imported: state.imported, hidden: state.hidden });
-    try { localStorage.setItem('pl-state', body); } catch { /* spazio esaurito: il server resta la copia principale */ }
-    try { const r = await fetch('/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body }); serverOk = r.ok; } catch { serverOk = false; }
-    listeners.forEach(f => f('saved'));
+    const data = serialize(), json = JSON.stringify(data);
+    try { localStorage.setItem('pl-state', json); } catch { /* spazio esaurito: resta il cloud */ }
+    if (json !== lastJson) {
+      lastJson = json;
+      try { await setDoc(stateRef(), data); serverOk = true; } catch { serverOk = false; }
+    }
+    notify('saved');
   }, 250);
 }
-export const isServerOk = () => serverOk;
-export function touch() { save(); listeners.forEach(f => f('changed')); }
+export function touch() { save(); notify('changed'); }
 
 /* ---------- accesso ai portafogli ---------- */
 const PALETTE_N = 16;
@@ -327,10 +351,6 @@ export const SEED_IDS = SEED.map(p => ({ id: p.id, n: p.n }));
 
 /* ripristina un backup completo (file scaricato con «Scarica backup») */
 export function loadFromBackup(data) {
-  state.portfolios = Array.isArray(data.portfolios) ? data.portfolios : [];
-  state.plans = Array.isArray(data.plans) ? data.plans.concat([null, null, null, null, null]).slice(0, 5) : [null, null, null, null, null];
-  state.settings = { rho: 0.9, rf: 2.5, ...(data.settings || {}) };
-  state.imported = data.imported && typeof data.imported === 'object' ? data.imported : {};
-  state.hidden = Array.isArray(data.hidden) ? data.hidden : [];
-  invalidate(); touch();
+  applyData(data);
+  touch();
 }

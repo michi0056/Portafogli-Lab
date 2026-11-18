@@ -1,6 +1,7 @@
-// Punto di ingresso: carica i dati, gestisce navigazione, tema, trascinamento dei file e segnalibri dei 5 piani.
-import { loadState, state, onChange, isServerOk, dueToday, getPortfolio, effectiveMetrics, esc, it, invalidate } from './core.js';
+// Punto di ingresso: accesso, dati dal cloud, navigazione, tema, trascinamento dei file, segnalibri dei 5 piani.
+import { loadState, watchRemote, backupJson, state, onChange, isServerOk, dueToday, getPortfolio, effectiveMetrics, esc, it, invalidate } from './core.js';
 import { $, $$, setRefresh, ICON, toast, go, download } from './ui.js';
+import { watchAuth } from './auth.js';
 import * as dash from './v-dashboard.js';
 import * as cmp from './v-compare.js';
 import * as plans from './v-plans.js';
@@ -19,7 +20,7 @@ const ROUTES = [
 
 const main = $('#main');
 let lastRoute = '';
-let nNew = 0;
+let booted = false;
 
 function parseHash() {
   const [, id = 'dashboard', ...rest] = (location.hash || '#/dashboard').split('/');
@@ -30,7 +31,7 @@ function parseHash() {
 /* ---------- navigazione e segnalibri ---------- */
 function drawNav(cur) {
   $('#nav').innerHTML = ROUTES.map(r =>
-    `<a href="#/${r.id}" ${r.id === cur ? 'aria-current="page"' : ''}>${r.icon}<span>${r.label}</span>${r.id === 'carica' && nNew ? `<span class="badge warn" style="margin-left:auto" title="PDF nuovi nella cartella inbox">${nNew}</span>` : ''}</a>`).join('');
+    `<a href="#/${r.id}" ${r.id === cur ? 'aria-current="page"' : ''}>${r.icon}<span>${r.label}</span></a>`).join('');
   drawPlansRail();
 }
 
@@ -54,9 +55,9 @@ function drawPlansRail() {
 
 function drawSaveState(kind) {
   const el = $('#savestate'); if (!el) return;
-  if (!isServerOk()) { el.className = 'savestate err'; el.textContent = 'Server non raggiungibile: i dati restano solo in questo browser.'; return; }
+  if (!isServerOk()) { el.className = 'savestate err'; el.textContent = 'Non sincronizzato: le modifiche restano in questo browser finché la connessione non torna.'; return; }
   el.className = 'savestate';
-  el.textContent = kind === 'changed' ? 'Salvataggio…' : 'Salvato sul computer';
+  el.textContent = kind === 'changed' ? 'Salvataggio…' : 'Salvato nel cloud';
 }
 
 /* ---------- disegno della schermata ---------- */
@@ -105,30 +106,25 @@ function initDrop() {
   });
 }
 
-/* ---------- PDF nuovi nella cartella inbox ---------- */
-let announced = 0;
-async function watchInbox() {
-  const n = await up.pollInbox();
-  if (n !== nNew) {
-    nNew = n;
-    drawNav(parseHash().route.id);
-    if (n > announced) toast(n === 1 ? 'C\'è 1 PDF nuovo nella cartella inbox: aprilo da «Carica PDF».' : `Ci sono ${n} PDF nuovi nella cartella inbox: aprili da «Carica PDF».`, 6000);
-    announced = n;
-  }
-}
-
-/* ---------- avvio ---------- */
-(async function start() {
-  initTheme();
-  $('#btn-backup')?.addEventListener('click', () => { let t = null; try { t = localStorage.getItem('pl-state'); } catch { /* facoltativo */ } download('portafogli-backup.json', t || '{"version":1,"portfolios":[],"plans":[null,null,null,null,null]}'); });
+/* ---------- avvio dopo l'accesso ---------- */
+async function openSession() {
   await loadState();
   invalidate();
-  setRefresh(() => render(false));
-  onChange(kind => { drawSaveState(kind); drawPlansRail(); });
-  window.addEventListener('hashchange', () => render(true));
-  initDrop();
   drawSaveState('saved');
   await render(true);
-  watchInbox();
-  setInterval(watchInbox, 5000);
-})();
+  if (booted) return;
+  booted = true;
+  setRefresh(() => render(false));
+  onChange(kind => {
+    drawSaveState(kind);
+    drawPlansRail();
+    if (kind === 'remote' && !$('#dlg').open) render(false);
+  });
+  window.addEventListener('hashchange', () => render(true));
+  initDrop();
+  watchRemote();
+}
+
+initTheme();
+$('#btn-backup').addEventListener('click', () => download('portafogli-backup.json', backupJson()));
+watchAuth(() => openSession());

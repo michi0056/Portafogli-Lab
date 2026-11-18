@@ -1,29 +1,12 @@
-// Carica PDF / JSON, cartella automatica "inbox", revisione dei dati letti e gestione dei portafogli caricati.
+// Carica PDF / JSON, revisione dei dati letti e gestione dei portafogli caricati.
 import { state, allPortfolios, addPortfolio, updatePortfolio, removePortfolio, effectiveMetrics, computeMetrics, enrichHolding, classify, CLASSES, SEED_IDS, esc, it, pct, num, touch, exportable, normalizeImported, isMine, invalidate, loadFromBackup } from './core.js';
 import { extractLines, parseDocument, isValidIsin } from './parser.js';
 import { $, $$, toast, openDlg, download, go, refresh } from './ui.js';
 
-/* ---------- cartella inbox ---------- */
-let inbox = [], inboxPath = '', inboxErr = false;
-const keyOf = f => `${f.name}|${f.size}|${Math.round(f.mtime)}`;
-const sig = () => inbox.map(f => keyOf(f) + (state.imported[keyOf(f)] ? '*' : '')).join(';');
-let drawnSig = '';
-export const newInbox = () => inbox.filter(f => !state.imported[keyOf(f)]);
-
-export async function pollInbox() {
-  try {
-    const r = await fetch('/api/inbox', { cache: 'no-store' });
-    if (!r.ok) throw new Error();
-    inbox = await r.json(); inboxErr = false;
-    if (!inboxPath) { try { inboxPath = (await (await fetch('/api/info')).json()).inbox || ''; } catch { /* facoltativo */ } }
-  } catch { inboxErr = true; inbox = []; }
-  return newInbox().length;
-}
-
 /* ---------- lettura file ---------- */
 const shortOf = n => (n || 'Portafoglio').replace(/^portafoglio\s+/i, 'P. ').slice(0, 18);
 
-export async function handleFiles(files, meta = {}) {
+export async function handleFiles(files) {
   const list = [...files];
   if (!list.length) return;
   for (const f of list) {
@@ -32,7 +15,7 @@ export async function handleFiles(files, meta = {}) {
     if (!isPdf && !isJson) { toast(`«${f.name}»: formato non supportato (servono PDF o JSON).`); continue; }
     try {
       const buf = await f.arrayBuffer();
-      if (isPdf) await readPdf(f.name, buf, meta); else await readJson(new TextDecoder().decode(buf), f.name);
+      if (isPdf) await readPdf(f.name, buf); else await readJson(new TextDecoder().decode(buf), f.name);
     } catch (err) {
       console.error(err);
       toast(`Non riesco a leggere «${f.name}»: ${err.message || err}. Puoi inserire i dati a mano da «Nuovo portafoglio a mano».`, 7000);
@@ -41,16 +24,14 @@ export async function handleFiles(files, meta = {}) {
   refresh();
 }
 
-async function readPdf(fileName, buf, meta) {
+async function readPdf(fileName, buf) {
   const lines = await extractLines(buf);
   if (!lines.join('').trim()) {
     toast(`«${fileName}» non contiene testo selezionabile (forse è una scansione): inserisci i dati a mano.`, 7000);
-    const r = await review({ title: `«${fileName}»: inserimento manuale`, draft: { name: fileName.replace(/\.pdf$/i, ''), h: [], m: {}, warnings: ['Il PDF non contiene testo leggibile (probabile scansione o immagine).'], file: fileName }, queue: '' });
-    if (meta.key) state.imported[meta.key] = r.id || 'skip';
+    await review({ title: `«${fileName}»: inserimento manuale`, draft: { name: fileName.replace(/\.pdf$/i, ''), h: [], m: {}, warnings: ['Il PDF non contiene testo leggibile (probabile scansione o immagine).'], file: fileName }, queue: '' });
     return;
   }
   const results = parseDocument(lines, { fileName });
-  let last = null;
   for (let i = 0; i < results.length; i++) {
     const r = results[i];
     const warnings = [...r.warnings];
@@ -60,9 +41,7 @@ async function readPdf(fileName, buf, meta) {
       draft: { name: r.name, s: shortOf(r.name), h: r.h, m: r.m, warnings, file: fileName, raw: i === 0 ? lines : null, found: r.found },
       queue: results.length > 1 ? `${i + 1}/${results.length}` : ''
     });
-    if (out.id) last = out.id;
   }
-  if (meta.key) { state.imported[meta.key] = last || 'skip'; touch(); }
 }
 
 async function readJson(text, fileName) {
@@ -203,21 +182,17 @@ export function newManual() {
 }
 
 /* ---------- schermata ---------- */
-export async function mount(root) {
-  await pollInbox();
+export function mount(root) {
   draw(root);
-  const iv = setInterval(async () => { if (!$('#v-upload', root)) { clearInterval(iv); return; } await pollInbox(); if (sig() !== drawnSig && !$('#dlg')?.open) draw(root); }, 3000);
 }
 
 function draw(root) {
-  drawnSig = sig();
   const mine = state.portfolios;
   const hidden = state.hidden.map(id => (SEED_IDS.find(s => s.id === id))).filter(Boolean);
-  const nNew = newInbox().length;
   root.innerHTML = `<div class="view" id="v-upload">
   <header>
     <h1>Carica PDF</h1>
-    <p class="muted">I PDF vengono letti sul tuo computer: non escono dal sito. Dopo la lettura vedi una schermata di controllo in cui correggi ciò che serve, poi il portafoglio compare in Dashboard, Confronto e Combinatore.</p>
+    <p class="muted">I PDF vengono letti direttamente nel browser: il file non viene caricato da nessuna parte. Dopo la lettura vedi una schermata di controllo in cui correggi ciò che serve, poi il portafoglio compare in Dashboard, Confronto e Combinatore.</p>
   </header>
 
   <section aria-label="Trascina i file">
@@ -229,19 +204,8 @@ function draw(root) {
     </div>
   </section>
 
-  <section aria-label="Cartella automatica">
-    <h2>2. Oppure copia i PDF nella cartella «inbox»</h2>
-    <p class="muted">Il modo più comodo: salvi i PDF scaricati dal progetto in questa cartella e qui compaiono da soli, senza trascinare.</p>
-    ${inboxPath ? `<p class="small">Cartella: <span class="code" style="cursor:text;user-select:all">${esc(inboxPath)}</span></p>` : ''}
-    ${inboxErr ? '<div class="notice">Non riesco a leggere la cartella: il sito è aperto senza il server? Avvia «avvia» (vedi LEGGIMI) e riapri dall\'indirizzo localhost.</div>' : ''}
-    <div class="wrap"><table><thead><tr><th>File nella cartella</th><th>Dimensione</th><th>Stato</th><th></th></tr></thead><tbody>
-      ${inbox.length ? inbox.map((f, i) => { const st = state.imported[keyOf(f)]; return `<tr><td>${esc(f.name)}</td><td class="n">${Math.round(f.size / 1024)} KB</td><td style="text-align:left">${!st ? '<span class="badge warn">nuovo</span>' : st === 'skip' ? '<span class="badge">saltato</span>' : '<span class="badge ok">importato</span>'}</td><td><button class="btn ${st ? 'ghost' : ''} small" data-inbox="${i}">${st ? 'Rileggi' : 'Leggi'}</button></td></tr>`; }).join('') : '<tr><td colspan="4" class="muted" style="text-align:left">Nessun PDF nella cartella.</td></tr>'}
-    </tbody></table></div>
-    ${nNew > 1 ? `<div><button class="btn" id="inbox-all">Leggi tutti i ${nNew} nuovi</button></div>` : ''}
-  </section>
-
   <section aria-label="Altri modi">
-    <h2>3. Altri modi per aggiungere un portafoglio</h2>
+    <h2>2. Altri modi per aggiungere un portafoglio</h2>
     <div class="grid2">
       <div class="panel stack"><h3>A mano</h3><p class="muted">Inserisci titoli, ISIN e pesi di un portafoglio che non hai in PDF.</p><div><button class="btn ghost" id="manual">Nuovo portafoglio a mano</button></div></div>
       <div class="panel stack"><h3>Incolla un JSON</h3><textarea id="json-in" placeholder='{"n":"Il mio piano","h":[{"n":"VWCE","isin":"IE00BK5BQT80","w":100,"ter":0.14}]}' aria-label="JSON del portafoglio"></textarea><div class="row"><button class="btn ghost" id="json-go">Importa JSON</button><span class="small">Anche un elenco di portafogli, o un backup scaricato dal sito.</span></div></div>
@@ -274,21 +238,8 @@ function draw(root) {
   $('#file', root).addEventListener('change', ev => { const f = [...ev.target.files]; ev.target.value = ''; handleFiles(f); });
   $('#manual', root).addEventListener('click', () => newManual());
   $('#json-go', root).addEventListener('click', async () => { const t = $('#json-in', root).value.trim(); if (!t) { toast('Incolla prima un JSON.'); return; } await readJson(t, 'JSON incollato'); refresh(); });
-  $$('[data-inbox]', root).forEach(b => b.addEventListener('click', () => importInbox(inbox[+b.dataset.inbox])));
-  $('#inbox-all', root)?.addEventListener('click', async () => { for (const f of newInbox()) await importInbox(f, true); refresh(); });
   $$('[data-edit]', root).forEach(b => b.addEventListener('click', () => editPortfolio(allPortfolios().find(p => p.id === b.dataset.edit))));
   $$('[data-json]', root).forEach(b => b.addEventListener('click', () => { const p = allPortfolios().find(x => x.id === b.dataset.json); download((p.s || p.n).replace(/[^\w\-]+/g, '_') + '.json', JSON.stringify(exportable(p), null, 2)); }));
   $$('[data-del]', root).forEach(b => b.addEventListener('click', () => { const p = allPortfolios().find(x => x.id === b.dataset.del); if (confirm(`Eliminare «${p.n}»?`)) { removePortfolio(p.id); toast('Eliminato.'); refresh(); } }));
   $$('[data-restore]', root).forEach(b => b.addEventListener('click', () => { state.hidden = state.hidden.filter(x => x !== b.dataset.restore); invalidate(); touch(); refresh(); }));
-}
-
-async function importInbox(f, quiet) {
-  try {
-    const r = await fetch('/api/inbox/' + encodeURIComponent(f.name));
-    if (!r.ok) throw new Error('file non trovato');
-    const buf = await r.arrayBuffer();
-    await readPdf(f.name, buf, { key: keyOf(f) });
-    state.imported[keyOf(f)] = state.imported[keyOf(f)] || 'skip'; touch();
-  } catch (err) { toast(`«${f.name}»: ${err.message || err}`, 6000); }
-  if (!quiet) refresh();
 }
